@@ -19,7 +19,6 @@ use PHPUnit\Framework\Attributes\UsesClass;
  */
 #[CoversClass(HttpTestCase::class)]
 #[UsesClass(ApplicationTestCase::class)]
-#[UsesClass(TestResponse::class)]
 final class HttpTestCaseTest extends HttpTestCase
 {
     protected function configureApplication(Application $app): void
