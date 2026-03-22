@@ -1,6 +1,6 @@
 {
   "name": "ez-php/testing-application",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Framework-coupled test base classes for ez-php — ApplicationTestCase, DatabaseTestCase, HttpTestCase",
   "type": "library",
   "license": "MIT",
