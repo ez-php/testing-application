@@ -1,3 +1,8 @@
+## [0.9.1] - 2026-03-23
+
+### 📚 Documentation
+
+- Update CHANGELOG for v0.9.0 [skip ci]
 ## [0.9.0] - 2026-03-23
 
 ### 📚 Documentation
