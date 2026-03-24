@@ -3,6 +3,7 @@
 ### 📚 Documentation
 
 - Update CHANGELOG for v0.9.3 [skip ci]
+- Update CHANGELOG for v1.0.0 [skip ci]
 ## [0.9.3] - 2026-03-24
 
 ### 📚 Documentation
