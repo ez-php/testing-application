@@ -172,7 +172,8 @@ This module is a **dev-time dependency**. Users add it to `require-dev` in their
 src/
 ├── ApplicationTestCase.php   — Abstract PHPUnit base; bootstraps a fresh Application per test
 ├── DatabaseTestCase.php      — Extends ApplicationTestCase; wraps each test in a DB transaction, rolls back on teardown
-└── HttpTestCase.php          — Extends ApplicationTestCase; get/post/put/delete helpers that dispatch through the full stack
+├── HttpTestCase.php          — Extends ApplicationTestCase; get/post/put/delete helpers that dispatch through the full stack
+└── MigrationBootstrap.php    — Runs migration files up/down against a PDO connection; for suite-level schema setup/teardown
 
 tests/
 ├── TestCase.php                    — Minimal PHPUnit base

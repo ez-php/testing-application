@@ -7,7 +7,7 @@ This package provides `ApplicationTestCase`, `DatabaseTestCase`, and `HttpTestCa
 ## Installation
 
 ```bash
-composer require-dev ez-php/testing-application
+composer require --dev ez-php/testing-application
 ```
 
 ## Base Classes
@@ -75,6 +75,25 @@ final class ApiTest extends HttpTestCase
         $this->get('/users/1')->assertOk()->assertJson(['id' => 1]);
     }
 }
+```
+
+## MigrationBootstrap
+
+`MigrationBootstrap` runs a set of migrations against a database before a test suite and tears them down after. Useful when `DatabaseTestCase`'s transaction rollback is not enough (e.g. DDL tests or modules that need a schema but not a full application):
+
+```php
+use EzPhp\Testing\MigrationBootstrap;
+
+// In setUpBeforeClass() / tearDownAfterClass():
+MigrationBootstrap::up($pdo, [
+    __DIR__ . '/migrations/001_create_users.php',
+    __DIR__ . '/migrations/002_create_posts.php',
+]);
+
+MigrationBootstrap::down($pdo, [
+    __DIR__ . '/migrations/002_create_posts.php',
+    __DIR__ . '/migrations/001_create_users.php',
+]);
 ```
 
 ## Requirements
