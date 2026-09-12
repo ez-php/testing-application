@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace EzPhp\Testing;
 
 use EzPhp\Application\Application;
-use EzPhp\Migration\Migrator;
+use EzPhp\Console\Console;
+use RuntimeException;
 
 /**
  * Class MigrationBootstrap
@@ -45,7 +46,26 @@ final class MigrationBootstrap
         $app = new Application($basePath);
         $app->bootstrap();
 
-        $app->make(Migrator::class)->migrate();
+        // Runs through the same `ez migrate` console command a developer would
+        // invoke by hand, rather than resolving framework/src/Migration/Migrator
+        // directly — Migrator is marked @internal, so calling it from a sibling
+        // package would defeat the point of that marker (freedom for the
+        // framework to change or remove it without notice).
+        //
+        // Output is buffered and discarded to preserve this method's original
+        // silent behaviour (a test-suite bootstrap script, not an interactive
+        // CLI invocation) — only a non-zero exit code surfaces, as an exception.
+        ob_start();
+
+        try {
+            $exitCode = $app->make(Console::class)->run(['ez', 'migrate']);
+        } finally {
+            ob_end_clean();
+        }
+
+        if ($exitCode !== 0) {
+            throw new RuntimeException("`ez migrate` failed with exit code {$exitCode} during test bootstrap.");
+        }
     }
 
     /**
