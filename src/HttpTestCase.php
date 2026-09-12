@@ -103,7 +103,11 @@ abstract class HttpTestCase extends ApplicationTestCase
         );
 
         $response = $this->app()->handle($request);
+        $testResponse = new TestResponse($response);
 
-        return new TestResponse($response);
+        // Body first, then terminate — the same order Application::send() uses in production.
+        $this->app()->terminate($request, $response);
+
+        return $testResponse;
     }
 }

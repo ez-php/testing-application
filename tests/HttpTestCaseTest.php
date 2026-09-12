@@ -6,6 +6,10 @@ namespace Tests;
 
 use EzPhp\Application\Application;
 use EzPhp\Contracts\ServiceProvider;
+use EzPhp\Http\Request;
+use EzPhp\Http\RequestInterface;
+use EzPhp\Http\ResponseInterface;
+use EzPhp\Middleware\TerminableMiddleware;
 use EzPhp\Routing\Router;
 use EzPhp\Testing\ApplicationTestCase;
 use EzPhp\Testing\HttpTestCase;
@@ -24,6 +28,7 @@ final class HttpTestCaseTest extends HttpTestCase
     protected function configureApplication(Application $app): void
     {
         $app->register(HttpTestRouteProvider::class);
+        $app->middleware(HttpTestTerminableProbe::class);
     }
 
     // ─── get ──────────────────────────────────────────────────────────────────
@@ -70,6 +75,17 @@ final class HttpTestCaseTest extends HttpTestCase
         $response = $this->get('/headers', ['X-Test-Header' => 'value123']);
 
         $response->assertOk()->assertSee('value123');
+    }
+
+    // ─── terminate ────────────────────────────────────────────────────────────
+
+    public function testTerminableMiddlewareRunsAfterTheRequest(): void
+    {
+        HttpTestTerminableProbe::$terminated = false;
+
+        $this->get('/hello')->assertOk();
+
+        $this->assertTrue(HttpTestTerminableProbe::$terminated);
     }
 
     // ─── 404 ──────────────────────────────────────────────────────────────────
@@ -127,5 +143,36 @@ final class HttpTestRouteProvider extends ServiceProvider
 
             return is_string($value) ? $value : '';
         });
+    }
+}
+
+/**
+ * Records whether terminate() ran.
+ */
+final class HttpTestTerminableProbe implements TerminableMiddleware
+{
+    public static bool $terminated = false;
+
+    /**
+     * @param RequestInterface $request
+     * @param callable         $next
+     *
+     * @return ResponseInterface
+     */
+    public function handle(RequestInterface $request, callable $next): ResponseInterface
+    {
+        /** @var ResponseInterface */
+        return $next($request);
+    }
+
+    /**
+     * @param Request           $request
+     * @param ResponseInterface $response
+     *
+     * @return void
+     */
+    public function terminate(Request $request, ResponseInterface $response): void
+    {
+        self::$terminated = true;
     }
 }
