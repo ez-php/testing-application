@@ -77,24 +77,34 @@ final class ApiTest extends HttpTestCase
 }
 ```
 
-## MigrationBootstrap
+## MigrationBootstrap / SeederBootstrap
 
-`MigrationBootstrap` runs a set of migrations against a database before a test suite and tears them down after. Useful when `DatabaseTestCase`'s transaction rollback is not enough (e.g. DDL tests or modules that need a schema but not a full application):
+Both are one-shot utilities for a test-suite **bootstrap script** (e.g. `phpunit.xml`'s
+`<bootstrap>`), not per-test base classes — they boot a fresh `Application` against the
+test database and run the equivalent console command (`ez migrate` / `ez db:seed`) once,
+before any test runs:
 
 ```php
+// bootstrap/test-setup.php
+require __DIR__ . '/../vendor/autoload.php';
+
 use EzPhp\Testing\MigrationBootstrap;
+use EzPhp\Testing\SeederBootstrap;
 
-// In setUpBeforeClass() / tearDownAfterClass():
-MigrationBootstrap::up($pdo, [
-    __DIR__ . '/migrations/001_create_users.php',
-    __DIR__ . '/migrations/002_create_posts.php',
-]);
-
-MigrationBootstrap::down($pdo, [
-    __DIR__ . '/migrations/002_create_posts.php',
-    __DIR__ . '/migrations/001_create_users.php',
-]);
+MigrationBootstrap::run(__DIR__ . '/..');
+SeederBootstrap::run(__DIR__ . '/..');
 ```
+
+```xml
+<!-- phpunit.xml -->
+<phpunit bootstrap="bootstrap/test-setup.php">
+```
+
+Both swap `DB_DATABASE` for `DB_TESTING_DATABASE` first (when the latter is set), so
+migrations/seeders run against the test schema, not production. A non-zero exit code from
+the underlying command is thrown as a `RuntimeException`, failing the suite immediately
+with a clear message rather than letting every test fail against an unmigrated/unseeded
+database.
 
 ## Requirements
 

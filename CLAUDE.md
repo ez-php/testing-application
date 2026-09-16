@@ -261,13 +261,16 @@ src/
 ├── ApplicationTestCase.php   — Abstract PHPUnit base; bootstraps a fresh Application per test
 ├── DatabaseTestCase.php      — Extends ApplicationTestCase; wraps each test in a DB transaction, rolls back on teardown
 ├── HttpTestCase.php          — Extends ApplicationTestCase; get/post/put/delete helpers that dispatch through the full stack
-└── MigrationBootstrap.php    — Runs migration files up/down against a PDO connection; for suite-level schema setup/teardown
+├── MigrationBootstrap.php    — Boots the Application against the test DB and runs `ez migrate`; for suite-level bootstrap scripts
+└── SeederBootstrap.php       — Boots the Application against the test DB and runs `ez db:seed`; companion to MigrationBootstrap
 
 tests/
 ├── TestCase.php                    — Minimal PHPUnit base
 ├── ApplicationTestCaseTest.php     — Tests bootstrap, app() accessor, configureApplication() hook
 ├── DatabaseTestCaseTest.php        — Tests transaction start and PDO accessibility (SQLite :memory:)
-└── HttpTestCaseTest.php            — Tests request helpers and 404 dispatch; uses an inline HttpTestRouteProvider
+├── HttpTestCaseTest.php            — Tests request helpers and 404 dispatch; uses an inline HttpTestRouteProvider
+├── MigrationBootstrapTest.php      — Tests switchToTestDatabase() env-var promotion and run() against a minimal SQLite app
+└── SeederBootstrapTest.php         — Tests run() actually executes seeders (insert visible after run) and propagates a seeder's exception
 ```
 
 ---
@@ -317,10 +320,24 @@ Extends `ApplicationTestCase`. All HTTP helpers construct a `Request` value obje
 
 ---
 
+### MigrationBootstrap (`src/MigrationBootstrap.php`) / SeederBootstrap (`src/SeederBootstrap.php`)
+
+Both are one-method utilities (`run(string $basePath): void`) for suite-level bootstrap scripts (e.g. `phpunit.xml`'s `<bootstrap>`), not per-test base classes — they don't extend `ApplicationTestCase`. Each swaps `DB_DATABASE` for `DB_TESTING_DATABASE` (all of `putenv()`, `$_ENV`, `$_SERVER`) when the latter is set, boots a fresh `Application`, and runs the equivalent console command (`ez migrate` / `ez db:seed`) through `$app->make(Console::class)->run([...])` — the same command path a developer would invoke by hand, rather than reaching for `Migrator`/`SeederRunner` directly, both of which are `@internal` to `ez-php/framework`. Output is buffered and discarded (silent bootstrap-script contract); a non-zero exit code is surfaced as a thrown `RuntimeException` instead.
+
+Typical pairing in a bootstrap script:
+
+```php
+MigrationBootstrap::run(__DIR__ . '/..');
+SeederBootstrap::run(__DIR__ . '/..');
+```
+
+---
+
 ## Design Decisions and Constraints
 
-- **Namespace stays `EzPhp\Testing\`, not `EzPhp\TestingApplication\`** — The three classes keep their original namespace so that downstream modules (framework, auth, orm, …) do not need `use`-statement changes when migrating from `ez-php/testing` to `ez-php/testing-application`. This is an intentional, established exception to the `EzPhp\<ModuleName>\` autoload convention (alongside `dotenv` → `Env`, `bignum` → `BigNum`, `opcache` → `OPCache`, documented in root `CLAUDE.md` §3). Both `modules/testing/composer.json` and `modules/testing-application/composer.json` declare the identical PSR-4 entry `"EzPhp\\Testing\\": "src/"`; root `composer.json`'s `autoload.psr-4` merges both `modules/testing/src/` and `modules/testing-application/src/` under that one namespace key, which works only because the two packages' class names never collide.
-- **Split from `ez-php/testing`** — `TestResponse` and `ModelFactory` have no framework dependency and remain in `ez-php/testing`. Only the three Application-booting base classes live here, because they require `ez-php/framework`.
+- **Namespace stays `EzPhp\Testing\`, not `EzPhp\TestingApplication\`** — The three classes keep their original namespace so that downstream modules (framework, auth, orm, …) do not need `use`-statement changes when migrating from `ez-php/testing` to `ez-php/testing-application`. This is an intentional, established exception to the `EzPhp\<ModuleName>\` autoload convention (alongside `dotenv` → `Env`, `bignum` → `BigNum`, `opcache` → `OPCache`, documented in root `CLAUDE.md` §3). Both `modules/testing/composer.json` and `modules/testing-application/composer.json` declare the identical PSR-4 entry `"EzPhp\\Testing\\": "src/"`; root `composer.json`'s `autoload.psr-4` merges both `modules/testing/src/` and `modules/testing-application/src/` under that one namespace key, which works only because the two packages' class names never collide. `MigrationBootstrap`/`SeederBootstrap` follow the same convention.
+- **Split from `ez-php/testing`** — `TestResponse` and `ModelFactory` have no framework dependency and remain in `ez-php/testing`. Only the Application-booting classes live here, because they require `ez-php/framework`.
+- **`SeederBootstrap` mirrors `MigrationBootstrap` exactly, deliberately** — same env-var swap logic, same output-buffering/exit-code-to-exception contract, same "drive the console command, don't reach for the internal runner class" reasoning. Divergent implementations of the same pattern would be a maintenance trap; any future change to one almost certainly belongs in the other too.
 - **`getBasePath()` creates a temp dir by default** — Same behaviour as in `ez-php/testing` before the split. The config/ stub satisfies `ConfigLoader` while all service bindings remain lazy.
 - **`DatabaseTestCase` uses transaction rollback, not table truncation** — Faster than truncation and avoids needing a separate test database.
 - **`HttpTestCase` does not emit HTTP headers** — `ResponseEmitter` is never called. The `Response` is returned directly from `Application::handle()`.
@@ -333,6 +350,7 @@ Extends `ApplicationTestCase`. All HTTP helpers construct a `Request` value obje
 - **No external infrastructure required** — All module tests run in-process using SQLite `:memory:`. No MySQL or Redis service needed.
 - **`DatabaseTestCaseTest` uses SQLite** — Overrides `getBasePath()` to create a temp dir with `config/db.php` returning `['driver' => 'sqlite', 'database' => ':memory:']`.
 - **`HttpTestCaseTest` registers routes via `HttpTestRouteProvider`** — A `ServiceProvider` defined in the test file registers routes in `boot()`.
+- **`SeederBootstrapTest` uses a file-backed SQLite database, not `:memory:`** — the bootstrap boots a fresh `Application` with its own PDO connection; a table created via a separate PDO connection to a `:memory:` database would not be visible to that second connection. The test pre-creates the table via a real `sqlite:<tmpfile>` path so both connections see the same schema, then asserts the seeder actually ran (not just that `run()` didn't throw) and that a seeder's exception propagates as `RuntimeException`.
 
 ---
 
