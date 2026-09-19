@@ -248,7 +248,7 @@ When adding a new module, add `"$ROOT/modules/<name>"` to the `PACKAGES` array i
 
 Framework-coupled PHPUnit base classes for ez-php applications — `ApplicationTestCase`, `DatabaseTestCase`, `HttpTestCase`.
 
-This module is the framework-aware complement to `ez-php/testing`. It was split out to allow `ez-php/testing` (which contains `TestResponse` and `ModelFactory`) to exist without any dependency on `ez-php/framework`. Only applications that actually boot the full framework stack need this package.
+This module is the framework-aware complement to `ez-php/testing`. It was split out to allow `ez-php/testing` (which contains `TestResponse` and `EntityFactory`) to exist without any dependency on `ez-php/framework`. Only applications that actually boot the full framework stack need this package.
 
 This module is a **dev-time dependency**. Users add it to `require-dev` in their application or module.
 
@@ -336,7 +336,7 @@ SeederBootstrap::run(__DIR__ . '/..');
 ## Design Decisions and Constraints
 
 - **Namespace stays `EzPhp\Testing\`, not `EzPhp\TestingApplication\`** — The three classes keep their original namespace so that downstream modules (framework, auth, orm, …) do not need `use`-statement changes when migrating from `ez-php/testing` to `ez-php/testing-application`. This is an intentional, established exception to the `EzPhp\<ModuleName>\` autoload convention (alongside `dotenv` → `Env`, `bignum` → `BigNum`, `opcache` → `OPCache`, documented in root `CLAUDE.md` §3). Both `modules/testing/composer.json` and `modules/testing-application/composer.json` declare the identical PSR-4 entry `"EzPhp\\Testing\\": "src/"`; root `composer.json`'s `autoload.psr-4` merges both `modules/testing/src/` and `modules/testing-application/src/` under that one namespace key, which works only because the two packages' class names never collide. `MigrationBootstrap`/`SeederBootstrap` follow the same convention.
-- **Split from `ez-php/testing`** — `TestResponse` and `ModelFactory` have no framework dependency and remain in `ez-php/testing`. Only the Application-booting classes live here, because they require `ez-php/framework`.
+- **Split from `ez-php/testing`** — `TestResponse` and `EntityFactory` have no framework dependency and remain in `ez-php/testing`. Only the Application-booting classes live here, because they require `ez-php/framework`.
 - **`SeederBootstrap` mirrors `MigrationBootstrap` exactly, deliberately** — same env-var swap logic, same output-buffering/exit-code-to-exception contract, same "drive the console command, don't reach for the internal runner class" reasoning. Divergent implementations of the same pattern would be a maintenance trap; any future change to one almost certainly belongs in the other too.
 - **`getBasePath()` creates a temp dir by default** — Same behaviour as in `ez-php/testing` before the split. The config/ stub satisfies `ConfigLoader` while all service bindings remain lazy.
 - **`DatabaseTestCase` uses transaction rollback, not table truncation** — Faster than truncation and avoids needing a separate test database.
@@ -344,6 +344,8 @@ SeederBootstrap::run(__DIR__ . '/..');
 - **No services resolved in `configureApplication()`** — Called before `bootstrap()`. Only `register()` and `middleware()` calls on the Application are safe here.
 
 ---
+- **The PSR-4 namespace `EzPhp\Testing\` is shared with `ez-php/testing`.** `ez-php/testing` and `ez-php/testing-application` were split from one package and deliberately keep the same root namespace so existing `use EzPhp\Testing\...` imports keep working; classes never collide because each class lives in exactly one of the two packages.
+
 
 ## Testing Approach
 
@@ -359,7 +361,7 @@ SeederBootstrap::run(__DIR__ . '/..');
 | Concern | Where it belongs |
 |---|---|
 | `TestResponse` assertion helpers | `ez-php/testing` |
-| `ModelFactory` | `ez-php/testing` |
+| `EntityFactory` | `ez-php/testing` |
 | Application lifecycle / bootstrap logic | `ez-php/framework` |
 | ORM / Model logic | `ez-php/orm` |
 | Fixture data for a specific application | Application's own test directory |

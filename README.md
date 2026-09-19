@@ -2,7 +2,7 @@
 
 Framework-coupled PHPUnit base classes for ez-php applications.
 
-This package provides `ApplicationTestCase`, `DatabaseTestCase`, and `HttpTestCase` — test base classes that boot the full ez-php `Application` stack. It is the framework-aware companion to [`ez-php/testing`](https://github.com/ez-php/testing), which contains the framework-independent utilities (`TestResponse`, `ModelFactory`).
+This package provides `ApplicationTestCase`, `DatabaseTestCase`, and `HttpTestCase` — test base classes that boot the full ez-php `Application` stack. It is the framework-aware companion to [`ez-php/testing`](https://github.com/ez-php/testing), which contains the framework-independent utilities (`TestResponse`, `EntityFactory`).
 
 ## Installation
 
