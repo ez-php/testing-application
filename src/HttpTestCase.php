@@ -76,8 +76,7 @@ abstract class HttpTestCase extends ApplicationTestCase
     /**
      * Send an arbitrary HTTP request through the application stack.
      *
-     * Header names are normalised to lowercase before being passed to the
-     * Request constructor, matching the behaviour of RequestFactory.
+     * Header names may use any case — the Request constructor lower-cases them.
      *
      * @param string               $method
      * @param string               $uri
@@ -89,17 +88,11 @@ abstract class HttpTestCase extends ApplicationTestCase
      */
     protected function request(string $method, string $uri, array $body = [], array $headers = []): TestResponse
     {
-        $normalizedHeaders = [];
-
-        foreach ($headers as $name => $value) {
-            $normalizedHeaders[strtolower($name)] = $value;
-        }
-
         $request = new Request(
             method: strtoupper($method),
             uri: $uri,
             body: $body,
-            headers: $normalizedHeaders,
+            headers: $headers,
         );
 
         $response = $this->app()->handle($request);
