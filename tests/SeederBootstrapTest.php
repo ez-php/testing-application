@@ -30,10 +30,9 @@ final class SeederBootstrapTest extends TestCase
             $basePath . '/database/seeders/ASeeder.php',
             <<<'PHP'
                 <?php
-                use EzPhp\Database\Database;
                 use EzPhp\Migration\SeederInterface;
                 return new class implements SeederInterface {
-                    public function run(Database $db): void {
+                    public function run(\EzPhp\Contracts\DatabaseInterface $db): void {
                         $db->execute('INSERT INTO items (name) VALUES (?)', ['Alice']);
                     }
                 };
@@ -59,10 +58,9 @@ final class SeederBootstrapTest extends TestCase
             $basePath . '/database/seeders/FailingSeeder.php',
             <<<'PHP'
                 <?php
-                use EzPhp\Database\Database;
                 use EzPhp\Migration\SeederInterface;
                 return new class implements SeederInterface {
-                    public function run(Database $db): void {
+                    public function run(\EzPhp\Contracts\DatabaseInterface $db): void {
                         throw new \RuntimeException('boom');
                     }
                 };

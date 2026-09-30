@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests;
 
 use EzPhp\Testing\MigrationBootstrap;
+use EzPhp\Testing\SuiteBootstrap;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * @package Tests
  */
 #[CoversClass(MigrationBootstrap::class)]
+#[CoversClass(SuiteBootstrap::class)]
 final class MigrationBootstrapTest extends TestCase
 {
     /** @var array<string, string|false> Original environment values restored in tearDown */
@@ -68,14 +70,7 @@ final class MigrationBootstrapTest extends TestCase
         $_SERVER['DB_DATABASE'] = 'production_db';
         $_SERVER['DB_TESTING_DATABASE'] = 'test_db';
 
-        // Invoke switchToTestDatabase indirectly by calling run() on a minimal
-        // basePath. We expect it to update the environment before booting, so
-        // after a (failing) run we can still inspect the environment.
-        // To avoid relying on a full framework boot, we call the static method
-        // through reflection to access the private helper directly.
-        $ref = new \ReflectionClass(MigrationBootstrap::class);
-        $method = $ref->getMethod('switchToTestDatabase');
-        $method->invoke(null);
+        SuiteBootstrap::switchToTestDatabase();
 
         $this->assertSame('test_db', getenv('DB_DATABASE'));
         $this->assertSame('test_db', $_ENV['DB_DATABASE']);
@@ -94,9 +89,7 @@ final class MigrationBootstrapTest extends TestCase
         $_ENV['DB_DATABASE'] = 'production_db';
         unset($_ENV['DB_TESTING_DATABASE'], $_SERVER['DB_TESTING_DATABASE']);
 
-        $ref = new \ReflectionClass(MigrationBootstrap::class);
-        $method = $ref->getMethod('switchToTestDatabase');
-        $method->invoke(null);
+        SuiteBootstrap::switchToTestDatabase();
 
         $this->assertSame('production_db', getenv('DB_DATABASE'));
         $this->assertSame('production_db', $_ENV['DB_DATABASE']);
@@ -116,9 +109,7 @@ final class MigrationBootstrapTest extends TestCase
         $_SERVER['DB_DATABASE'] = 'production_db';
         $_SERVER['DB_TESTING_DATABASE'] = '';
 
-        $ref = new \ReflectionClass(MigrationBootstrap::class);
-        $method = $ref->getMethod('switchToTestDatabase');
-        $method->invoke(null);
+        SuiteBootstrap::switchToTestDatabase();
 
         $this->assertSame('production_db', getenv('DB_DATABASE'));
         $this->assertSame('production_db', $_ENV['DB_DATABASE']);
@@ -145,6 +136,73 @@ final class MigrationBootstrapTest extends TestCase
         $this->addToAssertionCount(1);
 
         $this->cleanUp($basePath);
+    }
+
+    /**
+     * A pending migration needs SchemaInterface, which only a module provider
+     * binds — run() must register the providers from provider/modules.php
+     * before booting, or `ez migrate` fails with "No SchemaInterface configured".
+     *
+     * @return void
+     */
+    public function testRunRegistersModuleProvidersAndAppliesPendingMigration(): void
+    {
+        $basePath = $this->buildSqliteBasePath();
+        $dbFile = $basePath . '/test.sqlite';
+        file_put_contents(
+            $basePath . '/config/db.php',
+            "<?php\n\ndeclare(strict_types=1);\n\nreturn ['driver' => 'sqlite', 'database' => '{$dbFile}'];\n",
+        );
+        mkdir($basePath . '/provider');
+        file_put_contents(
+            $basePath . '/provider/modules.php',
+            "<?php\n\nreturn [\\Tests\\Support\\TestingAppSchemaProvider::class];\n",
+        );
+        file_put_contents(
+            $basePath . '/database/migrations/2026_01_01_000000_create_widgets_table.php',
+            <<<'PHP'
+                <?php
+                use EzPhp\Contracts\Schema\SchemaInterface;
+                use EzPhp\Migration\MigrationInterface;
+                return new class implements MigrationInterface {
+                    public function up(SchemaInterface $schema): void { $schema->create('widgets', static fn () => null); }
+                    public function down(SchemaInterface $schema): void { $schema->drop('widgets'); }
+                };
+                PHP,
+        );
+
+        putenv('DB_TESTING_DATABASE=');
+        unset($_ENV['DB_TESTING_DATABASE'], $_SERVER['DB_TESTING_DATABASE']);
+
+        try {
+            MigrationBootstrap::run($basePath);
+
+            $pdo = new \PDO('sqlite:' . $dbFile);
+            $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'widgets'");
+            $this->assertInstanceOf(\PDOStatement::class, $tables);
+            $this->assertSame(['widgets'], $tables->fetchAll(\PDO::FETCH_COLUMN));
+        } finally {
+            $this->cleanUp($basePath);
+        }
+    }
+
+    /**
+     * @return void
+     */
+    public function testRunRejectsModulesFileThatIsNotAList(): void
+    {
+        $basePath = $this->buildSqliteBasePath();
+        mkdir($basePath . '/provider');
+        file_put_contents($basePath . '/provider/modules.php', "<?php\n\nreturn 'nope';\n");
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('must return a list of service provider class names');
+
+        try {
+            MigrationBootstrap::run($basePath);
+        } finally {
+            $this->cleanUp($basePath);
+        }
     }
 
     // ─── helpers ─────────────────────────────────────────────────────────────

@@ -279,14 +279,15 @@ src/
 ├── DatabaseTestCase.php      — Extends ApplicationTestCase; wraps each test in a DB transaction, rolls back on teardown
 ├── HttpTestCase.php          — Extends ApplicationTestCase; get/post/put/delete helpers that dispatch through the full stack
 ├── MigrationBootstrap.php    — Boots the Application against the test DB and runs `ez migrate`; for suite-level bootstrap scripts
-└── SeederBootstrap.php       — Boots the Application against the test DB and runs `ez db:seed`; companion to MigrationBootstrap
+├── SeederBootstrap.php       — Boots the Application against the test DB and runs `ez db:seed`; companion to MigrationBootstrap
+└── SuiteBootstrap.php        — @internal: shared boot for both — DB swap, registers `provider/modules.php` providers, bootstrap()
 
 tests/
 ├── TestCase.php                    — Minimal PHPUnit base
 ├── ApplicationTestCaseTest.php     — Tests bootstrap, app() accessor, configureApplication() hook
 ├── DatabaseTestCaseTest.php        — Tests transaction start and PDO accessibility (SQLite :memory:)
 ├── HttpTestCaseTest.php            — Tests request helpers and 404 dispatch; uses an inline HttpTestRouteProvider
-├── MigrationBootstrapTest.php      — Tests switchToTestDatabase() env-var promotion and run() against a minimal SQLite app
+├── MigrationBootstrapTest.php      — Tests switchToTestDatabase() env-var promotion, run() against a minimal SQLite app, and a pending migration that needs a module provider's SchemaInterface
 └── SeederBootstrapTest.php         — Tests run() actually executes seeders (insert visible after run) and propagates a seeder's exception
 ```
 
@@ -354,7 +355,8 @@ SeederBootstrap::run(__DIR__ . '/..');
 
 - **Namespace stays `EzPhp\Testing\`, not `EzPhp\TestingApplication\`** — The three classes keep their original namespace so that downstream modules (framework, auth, orm, …) do not need `use`-statement changes when migrating from `ez-php/testing` to `ez-php/testing-application`. This is an intentional, established exception to the `EzPhp\<ModuleName>\` autoload convention (alongside `dotenv` → `Env`, `bignum` → `BigNum`, `opcache` → `OPCache`, documented in root `CLAUDE.md` §3). Both `modules/testing/composer.json` and `modules/testing-application/composer.json` declare the identical PSR-4 entry `"EzPhp\\Testing\\": "src/"`; root `composer.json`'s `autoload.psr-4` merges both `modules/testing/src/` and `modules/testing-application/src/` under that one namespace key, which works only because the two packages' class names never collide. `MigrationBootstrap`/`SeederBootstrap` follow the same convention.
 - **Split from `ez-php/testing`** — `TestResponse` and `EntityFactory` have no framework dependency and remain in `ez-php/testing`. Only the Application-booting classes live here, because they require `ez-php/framework`.
-- **`SeederBootstrap` mirrors `MigrationBootstrap` exactly, deliberately** — same env-var swap logic, same output-buffering/exit-code-to-exception contract, same "drive the console command, don't reach for the internal runner class" reasoning. Divergent implementations of the same pattern would be a maintenance trap; any future change to one almost certainly belongs in the other too.
+- **`SeederBootstrap` mirrors `MigrationBootstrap` exactly, deliberately** — same output-buffering/exit-code-to-exception contract, same "drive the console command, don't reach for the internal runner class" reasoning. The shared boot (env-var swap, module providers, `bootstrap()`) lives in the `@internal` `SuiteBootstrap`, so the two cannot drift apart there.
+- **Both register the providers from `provider/modules.php` before booting** — `ez migrate` resolves `SchemaInterface`, which only a module provider (`ez-php/orm`'s `SchemaServiceProvider`) binds, and seeders usually need application bindings. Booting with the core providers alone made any pending migration fail with "No SchemaInterface configured". A missing file means no module providers; a file that does not return a list of class names throws `RuntimeException`.
 - **`getBasePath()` creates a temp dir by default** — Same behaviour as in `ez-php/testing` before the split. The config/ stub satisfies `ConfigLoader` while all service bindings remain lazy.
 - **`DatabaseTestCase` uses transaction rollback, not table truncation** — Faster than truncation and avoids needing a separate test database.
 - **`HttpTestCase` does not emit HTTP headers** — `ResponseEmitter` is never called. The `Response` is returned directly from `Application::handle()`.

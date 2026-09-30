@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace EzPhp\Testing;
 
-use EzPhp\Application\Application;
 use EzPhp\Console\Console;
 use RuntimeException;
 
@@ -18,7 +17,8 @@ use RuntimeException;
  * so every application re-invented suite-level seeding by hand.
  *
  * Like MigrationBootstrap, it swaps DB_DATABASE for DB_TESTING_DATABASE
- * before booting, so seeders run against the test schema.
+ * before booting, so seeders run against the test schema, and registers the
+ * providers from `provider/modules.php` so seeders see the module bindings.
  *
  * Usage — typically chained after MigrationBootstrap in a bootstrap script:
  *   <?php
@@ -39,10 +39,7 @@ final class SeederBootstrap
      */
     public static function run(string $basePath): void
     {
-        self::switchToTestDatabase();
-
-        $app = new Application($basePath);
-        $app->bootstrap();
+        $app = SuiteBootstrap::boot($basePath);
 
         // Runs through the same `ez db:seed` console command a developer would
         // invoke by hand, rather than resolving framework/src/Migration/SeederRunner
@@ -61,29 +58,5 @@ final class SeederBootstrap
         if ($exitCode !== 0) {
             throw new RuntimeException("`ez db:seed` failed with exit code {$exitCode} during test bootstrap.");
         }
-    }
-
-    /**
-     * Replace DB_DATABASE with the value of DB_TESTING_DATABASE in all environment sources.
-     *
-     * No-op when DB_TESTING_DATABASE is not set or is an empty string.
-     *
-     * @return void
-     */
-    private static function switchToTestDatabase(): void
-    {
-        $raw = $_ENV['DB_TESTING_DATABASE']
-            ?? $_SERVER['DB_TESTING_DATABASE']
-            ?? getenv('DB_TESTING_DATABASE');
-
-        $testDb = is_string($raw) ? $raw : '';
-
-        if ($testDb === '') {
-            return;
-        }
-
-        putenv('DB_DATABASE=' . $testDb);
-        $_ENV['DB_DATABASE'] = $testDb;
-        $_SERVER['DB_DATABASE'] = $testDb;
     }
 }

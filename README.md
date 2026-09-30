@@ -100,7 +100,9 @@ SeederBootstrap::run(__DIR__ . '/..');
 <phpunit bootstrap="bootstrap/test-setup.php">
 ```
 
-Both swap `DB_DATABASE` for `DB_TESTING_DATABASE` first (when the latter is set), so
+Both register the service providers listed in `provider/modules.php` (so migrations get
+`ez-php/orm`'s `SchemaInterface` and seeders your module bindings), and both swap
+`DB_DATABASE` for `DB_TESTING_DATABASE` first (when the latter is set), so
 migrations/seeders run against the test schema, not production. A non-zero exit code from
 the underlying command is thrown as a `RuntimeException`, failing the suite immediately
 with a clear message rather than letting every test fail against an unmigrated/unseeded
