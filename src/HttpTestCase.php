@@ -88,9 +88,18 @@ abstract class HttpTestCase extends ApplicationTestCase
      */
     protected function request(string $method, string $uri, array $body = [], array $headers = []): TestResponse
     {
+        // Mirror RequestFactory: the query string stays in the URI (as in REQUEST_URI)
+        // and is also parsed into query(), the way PHP fills $_GET.
+        parse_str((string) parse_url($uri, PHP_URL_QUERY), $parsed);
+        $query = [];
+        foreach ($parsed as $key => $value) {
+            $query[(string) $key] = $value;
+        }
+
         $request = new Request(
             method: strtoupper($method),
             uri: $uri,
+            query: $query,
             body: $body,
             headers: $headers,
         );

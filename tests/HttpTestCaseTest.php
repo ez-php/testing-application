@@ -95,6 +95,16 @@ final class HttpTestCaseTest extends HttpTestCase
         $this->get('/this-route-does-not-exist')->assertNotFound();
     }
 
+    public function testQueryStringIsRoutedAndParsedIntoQuery(): void
+    {
+        $this->get('/query?page=2')->assertOk()->assertSee('page=2');
+    }
+
+    public function testPathParamIsPercentDecoded(): void
+    {
+        $this->get('/users/john%20doe?page=2')->assertOk()->assertSee('john doe');
+    }
+
     // ─── request() ────────────────────────────────────────────────────────────
 
     public function testRequestNormalizesHeaderNamesToLowercase(): void
@@ -132,6 +142,18 @@ final class HttpTestRouteProvider extends ServiceProvider
             $message = $request->input('message', '');
 
             return is_string($message) ? $message : '';
+        });
+
+        $router->get('/query', function (\EzPhp\Http\Request $request): string {
+            $page = $request->query('page', '');
+
+            return 'page=' . (is_string($page) ? $page : '');
+        });
+
+        $router->get('/users/{name}', function (\EzPhp\Http\Request $request): string {
+            $name = $request->param('name', '');
+
+            return is_string($name) ? $name : '';
         });
 
         $router->put('/update', fn () => 'updated');
