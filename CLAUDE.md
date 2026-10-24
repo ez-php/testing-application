@@ -290,7 +290,9 @@ tests/
 ├── DatabaseTestCaseTest.php        — Tests transaction start and PDO accessibility (SQLite :memory:)
 ├── HttpTestCaseTest.php            — Tests request helpers and 404 dispatch; uses an inline HttpTestRouteProvider
 ├── MigrationBootstrapTest.php      — Tests switchToTestDatabase() env-var promotion, run() against a minimal SQLite app, and a pending migration that needs a module provider's SchemaInterface
-└── SeederBootstrapTest.php         — Tests run() actually executes seeders (insert visible after run) and propagates a seeder's exception
+├── SeederBootstrapTest.php         — Tests run() actually executes seeders (insert visible after run) and propagates a seeder's exception
+└── Support/
+    └── TestingAppSchemaProvider.php — stand-in for ez-php/orm's SchemaServiceProvider in MigrationBootstrapTest
 ```
 
 ---
