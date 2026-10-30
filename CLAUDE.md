@@ -151,7 +151,7 @@ php make_module.php <name> --description="..." --services=mysql,redis --extensio
 
 `<name>` is the kebab-case package name; the namespace is derived as
 `EzPhp\<PascalCase>` (each `-`-separated word upper-cased) unless `--namespace=`
-overrides it. Existing exceptions the guess gets wrong: `asyncapi` → `AsyncApi`,
+overrides it. Existing exceptions the guess gets wrong: `asyncapi` → `AsyncApi`, `asyncapi-ui` → `AsyncApiUi`,
 `bignum` → `BigNum`, `dataloader` → `DataLoader`, `dotenv` → `Env`, `graphql` → `GraphQL`, `graphql-subscriptions` → `GraphQLSubscriptions`, `oauth` → `OAuth`,
 `opcache` → `OPCache`, `openapi` → `OpenApi`, `qrcode` → `QrCode`, `swagger-ui` → `SwaggerUI`, `webauthn` → `WebAuthn` and
 `websocket` → `WebSocket`; `websocket-client` → `WebsocketClient`, `websocket-tls` → `WebsocketTls`,
@@ -365,8 +365,6 @@ SeederBootstrap::run(__DIR__ . '/..');
 - **`DatabaseTestCase` uses transaction rollback, not table truncation** — Faster than truncation and avoids needing a separate test database.
 - **`HttpTestCase` does not emit HTTP headers** — `ResponseEmitter` is never called. The `Response` is returned directly from `Application::handle()`.
 - **No services resolved in `configureApplication()`** — Called before `bootstrap()`. Only `register()` and `middleware()` calls on the Application are safe here.
-
----
 - **The PSR-4 namespace `EzPhp\Testing\` is shared with `ez-php/testing`.** `ez-php/testing` and `ez-php/testing-application` were split from one package and deliberately keep the same root namespace so existing `use EzPhp\Testing\...` imports keep working; classes never collide because each class lives in exactly one of the two packages.
 - **Shares the `EzPhp\Testing\` namespace with `ez-php/testing`** — the two packages are split by coupling (framework-independent vs. framework-coupled), not by namespace. Class names must stay unique across both packages; check by hand when adding a class to either.
 
